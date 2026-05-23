@@ -39,6 +39,7 @@ export default function RootLayout({
               <a href="/compare" className="nav-link">价格对比</a>
               <a href="/calculator" className="nav-link">费用计算</a>
               <a href="/blog" className="nav-link">评测文章</a>
+              <a href="/models" className="nav-link">模型</a>
             </nav>
           </div>
         </header>
