@@ -261,56 +261,96 @@ def parse_bltcy(data: dict) -> dict:
         if mn:
             completion_map[mn] = cr
 
+    # 第一步：建立别名→目标模型的映射
+    # 别名特征：description 包含"指向"，mp == 0
+    # 例如：gpt-4o 指向 gpt-4o-2024-05-13
+    alias_map = {}  # alias_name -> target_name
+    real_models = {}  # model_name -> {mp, mr, cr, enable_groups}
+
+    for m in models:
+        mn = m.get('model_name', '')
+        if not mn:
+            continue
+        mp = m.get('model_price', 0)
+        mr = m.get('model_ratio', 1)
+        cr = m.get('completion_ratio', 1)
+        desc = m.get('description', '')
+        enable_groups = m.get('enable_groups', ['default'])
+
+        is_alias = ('指向' in desc) and (mp == 0 or mr == 0)
+        if is_alias:
+            # 提取目标模型名（description 包含"指向XXX"）
+            match = re.search(r'指向([^\s,，)>]+)', desc)
+            if match:
+                target = match.group(1).strip()
+                alias_map[mn] = target
+        else:
+            real_models[mn] = {
+                'base': mr if mp == 0 else mp,
+                'mr': mr,
+                'cr': cr,
+                'enable_groups': enable_groups
+            }
+
+    # 第二步：解析所有模型，别名用真实目标的 base price
     for m in models:
         model_name = m.get('model_name', '')
         if not model_name:
             continue
 
-        mp = m.get('model_price', 0)  # base price
-        mr = m.get('model_ratio', 1)  # ratio/multiplier
-        cr = m.get('completion_ratio', 1)  # completion ratio
+        mp = m.get('model_price', 0)
+        mr = m.get('model_ratio', 1)
+        cr = m.get('completion_ratio', 1)
+        enable_groups = m.get('enable_groups', ['default'])
 
-        # 关键修复: 当 model_price=0 时，说明这是别名，
-        # 实际的 base price 存储在 model_ratio 字段中
-        # 例如 gpt-4o 的 description 说"指向gpt-4o-2024-05-13"
-        # gpt-4o: mp=0, mr=1.25 → base = mr = 1.25
-        # gpt-4o-2024-05-13: mp=0, mr=2.5 → base = mr = 2.5
-        if mp == 0:
+        # 解析 base price：别名走两步，非别名走一步
+        if model_name in alias_map:
+            # 别名：取真实目标的 base price
+            target = alias_map[model_name]
+            if target in real_models:
+                base = real_models[target]['base']
+                # 别名的 completion_ratio 以自己为准（gpt-4o: cr=4）
+                # 但如果没有 completion，用真实的
+                cr = cr if cr > 0 else real_models[target].get('cr', 1)
+            else:
+                base = mr  # fallback
+        elif mp == 0:
+            # 非别名，mp=0：用 model_ratio 作为 base（真实模型）
             base = mr
         else:
             base = mp
 
-        # 获取该模型支持的 groups，取 group_ratio 最小的（最便宜的）
+        # 获取该模型支持的 groups
+        # 优先级：vip > ssvip > 其他（取最低 ratio）
+        # 原因：getcheapai 对不同模型选择 vip（最低价），无 vip 时选 ssvip
         enable_groups = m.get('enable_groups', ['default'])
-        best_group = 'default'
-        best_input = None
 
-        for grp in enable_groups:
-            gr = group_ratios.get(grp, 1)
-            inp = base * gr
-            if best_input is None or inp < best_input:
-                best_input = inp
-                best_group = grp
+        if 'vip' in enable_groups:
+            best_group = 'vip'
+        elif 'ssvip' in enable_groups:
+            best_group = 'ssvip'
+        else:
+            # 取 group_ratio 最小的（最便宜的）
+            best_group = min(enable_groups, key=lambda g: group_ratios.get(g, 999))
 
-        if best_input is not None:
-            inp = round(best_input, 6)
-            # output = input * completion_ratio
-            # 如果 completion_ratio=0（表示该模型没有 output price），则跳过
-            if cr > 0:
-                out = round(inp * cr, 6)
-            else:
-                out = None
+        gr = group_ratios.get(best_group, 1)
+        inp = round(base * gr, 6)
+        # output = input * completion_ratio
+        if cr > 0:
+            out = round(inp * cr, 6)
+        else:
+            out = None
 
-            # 如果当前没有这个模型，或者新的价格更低，则更新
-            if model_name not in result['models'] or inp < result['models'][model_name].get('input', float('inf')):
-                result['models'][model_name] = {
-                    'input': inp,
-                    'output': out,
-                    'ratio': mr,
-                    'completionRatio': cr,
-                    'group': best_group,
-                    'base': base,
-                }
+        # 如果当前没有这个模型，或者新的价格更低，则更新
+        if model_name not in result['models'] or inp < result['models'][model_name].get('input', float('inf')):
+            result['models'][model_name] = {
+                'input': inp,
+                'output': out,
+                'ratio': mr,
+                'completionRatio': cr,
+                'group': best_group,
+                'base': base,
+            }
 
     result['modelCount'] = len(result['models'])
     return result
