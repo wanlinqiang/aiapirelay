@@ -1,0 +1,86 @@
+[
+  {
+    "station_id": "yunwu",
+    "name": "云雾 API",
+    "url": "https://yunwu.ai",
+    "status_code": 200,
+    "latency_ms": 456.0,
+    "pricing_api_status": 200,
+    "pricing_api_latency_ms": 681.9,
+    "timestamp": "2026-05-22T15:36:16.296699+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "bltcy",
+    "name": "柏拉图 AI",
+    "url": "https://api.bltcy.ai",
+    "status_code": 200,
+    "latency_ms": 514.9,
+    "pricing_api_status": 200,
+    "pricing_api_latency_ms": 663.8,
+    "timestamp": "2026-05-22T15:36:17.937098+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "rcouyi",
+    "name": "No.1-API",
+    "url": "https://api.rcouyi.com",
+    "status_code": 200,
+    "latency_ms": 814.1,
+    "pricing_api_status": 200,
+    "pricing_api_latency_ms": 3637.6,
+    "timestamp": "2026-05-22T15:36:19.618003+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "closeai",
+    "name": "CloseAI",
+    "url": "https://www.closeai-asia.com",
+    "status_code": 200,
+    "latency_ms": 64.4,
+    "pricing_api_status": null,
+    "pricing_api_latency_ms": null,
+    "timestamp": "2026-05-22T15:36:24.572039+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "uiuiapi",
+    "name": "UiUiAPI",
+    "url": "https://uiuiapi.com",
+    "status_code": 200,
+    "latency_ms": 504.8,
+    "pricing_api_status": null,
+    "pricing_api_latency_ms": null,
+    "timestamp": "2026-05-22T15:36:25.137787+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "gptgod",
+    "name": "GPTGOD",
+    "url": "https://gptgod.online",
+    "status_code": 200,
+    "latency_ms": 576.8,
+    "pricing_api_status": null,
+    "pricing_api_latency_ms": null,
+    "timestamp": "2026-05-22T15:36:26.144084+00:00",
+    "error": null,
+    "is_down": false
+  },
+  {
+    "station_id": "mkeai",
+    "name": "MKEAI",
+    "url": "https://mkeai.com",
+    "status_code": 200,
+    "latency_ms": 196.8,
+    "pricing_api_status": null,
+    "pricing_api_latency_ms": null,
+    "timestamp": "2026-05-22T15:36:27.222625+00:00",
+    "error": null,
+    "is_down": false
+  }
+]

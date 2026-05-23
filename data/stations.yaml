@@ -1,0 +1,329 @@
+# AI API 中转站数据库
+# 维护方式：
+#   - 有 /api/pricing 的站点：自动抓取（cron job）
+#   - 无公开 API 的站点：每周手动更新
+# 最后更新：2026-05-22
+
+stations:
+  # ========================================
+  # 第一批：已确认可自动抓取价格的站点
+  # ========================================
+
+  - id: yunwu
+    name: 云雾 API (YUNWU)
+    slug: yunwu-ai
+    url: https://yunwu.ai
+    apiBase: https://yunwu.ai/v1
+    pricingApi: https://yunwu.ai/api/pricing
+    type: mixed  # 混合（官方+其他渠道）
+    payment: [alipay, wechat]
+    status: active
+    affiliateUrl: ""  # 待联系商务获取
+    contact:
+      telegram: ""  # 待查
+    models:  # 从 pricing API 自动发现，此处为基础列表
+      - gpt-4o
+      - gpt-4o-mini
+      - gpt-4.1
+      - gpt-4.1-mini
+      - gpt-4.1-nano
+      - gpt-4-turbo
+      - gpt-4
+      - gpt-3.5-turbo
+      - claude-3-5-sonnet
+      - claude-3-5-haiku
+      - deepseek-v3
+      - deepseek-v4
+      - gemini-2.0-flash
+      - gemini-1.5-pro
+    notes: |
+      速度快、稳定性好、支持模型多。是目前最知名的中转站之一。
+      有多个价格通道（default, 官方转, 企业级等），价格差异大。
+    officialModels:  # 官方渠道支持的模型
+      - gpt-4o
+      - claude-3-5-sonnet
+      - gemini-pro
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 120  # ms
+    isAutoFetchable: true
+
+  - id: bltcy
+    name: 柏拉图 AI (bltcy)
+    slug: bltcy-ai
+    url: https://api.bltcy.ai
+    apiBase: https://api.bltcy.ai/v1
+    pricingApi: https://api.bltcy.ai/api/pricing
+    type: mixed
+    payment: [alipay, wechat]
+    status: active
+    affiliateUrl: ""
+    contact:
+      telegram: ""
+    models:
+      - gpt-4o
+      - gpt-4o-mini
+      - gpt-4-turbo
+      - gpt-5.5
+      - deepseek-v4-pro
+      - deepseek-v4-flash
+      - claude-3-5-sonnet
+    notes: |
+      自称最低价，使用 Azure 官方渠道。
+      支持 Midjourney、Suno、Luma 等图像/视频模型。
+    officialModels:
+      - gpt-4o
+      - claude-3-5-sonnet
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 150
+    isAutoFetchable: true
+
+  - id: rcouyi
+    name: No.1-API
+    slug: no1-api
+    url: https://api.rcouyi.com
+    apiBase: https://api.rcouyi.com/v1
+    pricingApi: https://api.rcouyi.com/api/pricing
+    type: aggregator  # 聚合平台
+    payment: [alipay, wechat]
+    status: active
+    affiliateUrl: ""
+    contact:
+      telegram: ""
+    models:
+      - gpt-4o
+      - claude-3-5-sonnet
+      - deepseek-v3
+      - gemini-pro
+      - qwen-max
+      - hunyuan
+    notes: |
+      一站式聚合平台，汇聚多个上游渠道。
+    officialModels: []
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 200
+    isAutoFetchable: true
+
+  # ========================================
+  # 第二批：已发现但待测试的站点
+  # ========================================
+
+  - id: closeai
+    name: CloseAI
+    slug: closeai-asia
+    url: https://www.closeai-asia.com
+    apiBase: ""  # 待测试
+    pricingApi: ""  # 待测试
+    type: official-relay  # 官方中转
+    payment: [alipay, wechat, enterprise-invoice]
+    status: active
+    affiliateUrl: ""
+    contact:
+      telegram: ""
+    models:
+      - gpt-4o
+      - claude-3-5-sonnet
+      - gemini-pro
+    notes: |
+      自称亚洲最大的企业级官方中转站。
+      需要商务联系获取 API 和价格信息。
+    officialModels:
+      - gpt-4o
+      - claude-3-5-sonnet
+      - gemini-pro
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 0  # 待测
+    isAutoFetchable: false  # 推测需要认证
+
+  - id: uiuiapi
+    name: UiUiAPI
+    slug: uiuiapi
+    url: https://uiuiapi.com
+    apiBase: ""  # 待测试
+    pricingApi: ""  # 待测试 /api/pricing 可能存在
+    type: official-relay
+    payment: [alipay, wechat]
+    status: active
+    affiliateUrl: ""
+    contact:
+      telegram: ""
+    models:
+      - gpt-4o
+      - claude-3-5-sonnet
+      - gemini-pro
+    notes: |
+      号称官方渠道 + 官方乘数，号称比官方便宜 49%。
+      支持 300+ 模型，30+ 提供商。
+    officialModels:
+      - gpt-4o
+      - claude-3-5-sonnet
+      - gemini-pro
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 0
+    isAutoFetchable: true  # 推测有公开 pricing
+
+  # ========================================
+  # 第三批：社区已知站点（需手动维护价格）
+  # ========================================
+
+  - id: gptgod
+    name: GPTGOD
+    slug: gptgod
+    url: https://gptgod.online
+    apiBase: ""  # 待查
+    pricingApi: ""  # 无公开 API
+    type: reverse  # 逆向工程（最便宜但最不稳定）
+    payment: [alipay]
+    status: unverified  # 社区列出，但未经独立验证
+    affiliateUrl: ""
+    contact: {}
+    models:
+      - gpt-4o
+      - claude-3-5-sonnet
+    notes: |
+      ⚠️ 风险提示：逆向工程站，价格极低但稳定性无保证。
+      建议仅用于非关键业务的开发测试。
+    officialModels: []
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 0
+    isAutoFetchable: false
+    manualPriceUpdate: true
+    manualPrice:  # 参考价格（来源：aiapipk.com）
+      gpt-4o: 0.6
+      claude-3-5-sonnet: 0.6
+      deepseek-v3: 1.8
+
+  - id: mkeai
+    name: MKEAI
+    slug: mkeai
+    url: https://mkeai.com
+    apiBase: ""
+    pricingApi: ""
+    type: mixed
+    payment: [alipay, wechat]
+    status: unverified
+    affiliateUrl: ""
+    contact: {}
+    models:
+      - gpt-4o
+      - deepseek-v3
+    notes: |
+      社区论坛 + 中转混合平台，主推 DeepSeek。
+    officialModels: []
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 0
+    isAutoFetchable: false
+    manualPriceUpdate: true
+    manualPrice:
+      gpt-4o: 1.0  # 估计
+      deepseek-v3: 0.5  # 估计
+
+  - id: dmxapi
+    name: DMXAPI
+    slug: dmxapi
+    url: https://dmxapi.cn
+    apiBase: ""
+    pricingApi: ""  # HTTP 000，无法访问
+    type: mixed
+    payment: [alipay, wechat]
+    status: dead  # 疑似跑路/不可访问
+    affiliateUrl: ""
+    contact: {}
+    models: []
+    notes: |
+      ⚠️ 疑似不可访问（HTTP 000），建议标记为 dead。
+    officialModels: []
+    lastChecked: 2026-05-22T00:00:00Z
+    lastPriceUpdate: 2026-05-22T00:00:00Z
+    avgLatency: 0
+    isAutoFetchable: false
+    isDead: true
+
+# ========================================
+# 价格参考数据（来源：aiapipk.com）
+# 单位：元/千token（输入价格）
+# ========================================
+
+price_reference:
+  source: aiapipk.com
+  last_scraped: 2026-05-22
+  data:
+    gpt-4o:
+      min: 0.3
+      max: 2.5
+      avg: 1.0
+      stations: [sbgpt, ggwk1, KFCV50API, yunai, openaiLabs, azapi, GueAi, 996444]
+    gpt-4o-mini:
+      min: 0.075
+      max: 0.2
+      avg: 0.1
+      stations: [yunwu, rcouyi]
+    claude-3-5-sonnet:
+      min: 0.6
+      max: 8.0
+      avg: 2.0
+      stations: [aabao, gptuu, china, paintbot, kksj]
+    deepseek-v3:
+      min: 0.1
+      max: 5.89
+      avg: 1.5
+      stations: [aabao, sbgpt, yunai, xiaojing, openaiLabs]
+    gemini-pro:
+      min: 0.22
+      max: 4.0
+      avg: 1.0
+      stations: [MNAPI, kksj, xiaojing]
+
+# ========================================
+# 站点配置（用于 monitor-sites.py）
+# ========================================
+
+monitoring:
+  sites:
+    - id: yunwu
+      name: 云雾 API
+      checkUrl: https://yunwu.ai
+      checkApi: https://yunwu.ai/api/pricing
+      expectedStatus: 200
+
+    - id: bltcy
+      name: 柏拉图 AI
+      checkUrl: https://api.bltcy.ai
+      checkApi: https://api.bltcy.ai/api/pricing
+      expectedStatus: 200
+
+    - id: rcouyi
+      name: No.1-API
+      checkUrl: https://api.rcouyi.com
+      checkApi: https://api.rcouyi.com/api/pricing
+      expectedStatus: 200
+
+    - id: closeai
+      name: CloseAI
+      checkUrl: https://www.closeai-asia.com
+      checkApi: ""
+      expectedStatus: 200
+
+    - id: uiuiapi
+      name: UiUiAPI
+      checkUrl: https://uiuiapi.com
+      checkApi: ""
+      expectedStatus: 200
+
+    - id: gptgod
+      name: GPTGOD
+      checkUrl: https://gptgod.online
+      checkApi: ""
+      expectedStatus: 200
+
+    - id: mkeai
+      name: MKEAI
+      checkUrl: https://mkeai.com
+      checkApi: ""
+      expectedStatus: 200
