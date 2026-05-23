@@ -3,13 +3,14 @@
 fetch-pricing.py - 每日抓取所有中转站价格数据
 运行方式: python3 scripts/fetch-pricing.py
 触发: 每日 Cron Job (09:00)
-依赖: pip3 install requests pyyaml
+依赖: pip3 install requests
 
 功能:
   1. 抓取所有站点的 /api/pricing 端点
-  2. 解析并标准化价格数据
+  2. 解析并标准化价格数据（修复 output price 计算）
   3. 保存到 data/pricing-history/{date}.json
   4. 检测价格变化，发 Telegram 预警
+  5. 可选：对照 getcheapai 参考数据（--compare 参数）
 """
 
 import json
@@ -17,6 +18,7 @@ import os
 import sys
 import time
 import requests
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -28,20 +30,46 @@ from typing import Optional
 STATIONS = {
     'yunwu': {
         'url': 'https://yunwu.ai/api/pricing',
-        'type': 'mixed',
+        'type': 'yunwu',
         'name': '云雾 API'
     },
     'bltcy': {
         'url': 'https://api.bltcy.ai/api/pricing',
-        'type': 'mixed',
+        'type': 'bltcy',
         'name': '柏拉图 AI'
     },
     'rcouyi': {
         'url': 'https://api.rcouyi.com/api/pricing',
-        'type': 'aggregator',
+        'type': 'rcouyi',
         'name': 'No.1-API'
     },
     # 更多站点可在此添加
+}
+
+# getcheapai 参考价格（用于对照，热门模型）
+# 格式: {model_id: {station_name: (input, output)}}
+GETCHEAPAI_REFERENCE = {
+    'gpt-4o': {
+        'Yunwu': (0.75, 3.0),
+        'LinkAPI': (1.25, 5.0),
+        'Plato': (2.0, 8.0),
+        'PoloAPI': (2.0, 8.0),
+        'JiKe AI': (2.125, 8.5),
+        'V-API': (6.25, 25.0),
+        'BEST AI': (7.5, 30.0),
+        'Qianduoduo': (8.75, 35.0),
+        'DMX': (12.5, 50.0),
+        'AIHubMix': (18.25, 73.0),
+    },
+    'gpt-4o-mini': {
+        'Yunwu': (0.075, 0.3),
+        'LinkAPI': (0.15, 0.6),
+        'Plato': (0.225, 0.9),
+    },
+    'claude-3-5-sonnet': {
+        'Yunwu': (1.5, 6.0),
+        'Plato': (2.5, 10.0),
+    },
 }
 
 # 输出目录
@@ -98,8 +126,38 @@ def load_previous_day(date_str: str) -> Optional[dict]:
         return json.load(f.open())
     return None
 
+def compare_with_reference(station_id: str, model_id: str, our_input: float, our_output: float, reference: dict) -> dict:
+    """对照 getcheapai 参考数据，返回差异"""
+    ref_stations = GETCHEAPAI_REFERENCE.get(model_id, {})
+    
+    # 找到参考中对应的站点
+    ref_station_names = {
+        'yunwu': 'Yunwu',
+        'bltcy': 'Plato',
+        'rcouyi': 'No.1-API',
+    }
+    ref_name = ref_station_names.get(station_id, station_id)
+    
+    if ref_name not in ref_stations:
+        return None
+    
+    ref_input, ref_output = ref_stations[ref_name]
+    
+    diff = {
+        'station': station_id,
+        'model': model_id,
+        'our_input': our_input,
+        'our_output': our_output,
+        'ref_input': ref_input,
+        'ref_output': ref_output,
+        'input_diff': round(our_input - ref_input, 4),
+        'output_diff': round(our_output - ref_output, 4) if our_output and ref_output else None,
+    }
+    
+    return diff
+
 # ============================================
-# 各站点解析器
+# 各站点解析器（已修复）
 # ============================================
 
 def parse_yunwu(data: dict) -> dict:
@@ -109,6 +167,11 @@ def parse_yunwu(data: dict) -> dict:
     数据结构:
       data.model_group[groupName].ModelPrice[modelId] = {priceType, price}
       data.model_group[groupName].GroupRatio = multiplier
+      data.model_completion_ratio[modelId] = completion_ratio (用于算 output price)
+
+    计算公式:
+      input_price = price * group_ratio (priceType=0)
+      output_price = input_price * completion_ratio
     """
     result = {
         'station': 'yunwu',
@@ -120,6 +183,7 @@ def parse_yunwu(data: dict) -> dict:
     }
 
     model_groups = data.get('data', {}).get('model_group', {})
+    completion_ratios = data.get('data', {}).get('model_completion_ratio', {})
 
     for group_name, group_data in model_groups.items():
         ratio = group_data.get('GroupRatio', 1)
@@ -147,14 +211,22 @@ def parse_yunwu(data: dict) -> dict:
             })
 
             if price_type == 0:  # input
-                entry['input'] = round(price_val * ratio, 6)
-            elif price_type == 1:  # output/special
-                if entry['output'] is None:
-                    entry['output'] = round(price_val * ratio, 6)
+                computed_input = round(price_val * ratio, 6)
+                # 取最低的 input price（最好的 group）
+                if entry['input'] is None or computed_input < entry['input']:
+                    entry['input'] = computed_input
+                    entry['ratio'] = ratio
+                    entry['group'] = group_display
+
+    # 计算 output price: input * completion_ratio
+    for model_id, entry in result['models'].items():
+        if entry['input'] is not None and model_id in completion_ratios:
+            entry['output'] = round(entry['input'] * completion_ratios[model_id], 6)
 
     result['modelCount'] = len(result['models'])
     result['groups'] = list(model_groups.keys())
     return result
+
 
 def parse_bltcy(data: dict) -> dict:
     """
@@ -162,6 +234,13 @@ def parse_bltcy(data: dict) -> dict:
 
     数据结构:
       data.data[].model_name, model_price, model_ratio, completion_ratio
+      data.group_ratio[groupName] = multiplier
+      data.auto_groups = [...] (包含各 group 的模型列表)
+
+    计算公式:
+      当 model_price = 0 时，base = model_ratio（别名指向的原始模型）
+      input_price = base * group_ratio
+      output_price = input_price * completion_ratio
     """
     result = {
         'station': 'bltcy',
@@ -172,29 +251,70 @@ def parse_bltcy(data: dict) -> dict:
     }
 
     models = data.get('data', [])
+    group_ratios = data.get('group_ratio', {})
+
+    # 构建 model_name -> completion_ratio 映射
+    completion_map = {}
+    for m in models:
+        mn = m.get('model_name', '')
+        cr = m.get('completion_ratio', 1)
+        if mn:
+            completion_map[mn] = cr
 
     for m in models:
         model_name = m.get('model_name', '')
-        price = m.get('model_price', 0)
-        ratio = m.get('model_ratio', 1)
-        completion_ratio = m.get('completion_ratio', 1)
-
         if not model_name:
             continue
 
-        input_price = round(price * ratio, 6)
-        output_price = round(price * ratio * completion_ratio, 6) if completion_ratio else None
+        mp = m.get('model_price', 0)  # base price
+        mr = m.get('model_ratio', 1)  # ratio/multiplier
+        cr = m.get('completion_ratio', 1)  # completion ratio
 
-        result['models'][model_name] = {
-            'input': input_price,
-            'output': output_price,
-            'ratio': ratio,
-            'completionRatio': completion_ratio,
-            'group': m.get('enable_groups', ['default'])[0] if m.get('enable_groups') else 'default'
-        }
+        # 关键修复: 当 model_price=0 时，说明这是别名，
+        # 实际的 base price 存储在 model_ratio 字段中
+        # 例如 gpt-4o 的 description 说"指向gpt-4o-2024-05-13"
+        # gpt-4o: mp=0, mr=1.25 → base = mr = 1.25
+        # gpt-4o-2024-05-13: mp=0, mr=2.5 → base = mr = 2.5
+        if mp == 0:
+            base = mr
+        else:
+            base = mp
+
+        # 获取该模型支持的 groups，取 group_ratio 最小的（最便宜的）
+        enable_groups = m.get('enable_groups', ['default'])
+        best_group = 'default'
+        best_input = None
+
+        for grp in enable_groups:
+            gr = group_ratios.get(grp, 1)
+            inp = base * gr
+            if best_input is None or inp < best_input:
+                best_input = inp
+                best_group = grp
+
+        if best_input is not None:
+            inp = round(best_input, 6)
+            # output = input * completion_ratio
+            # 如果 completion_ratio=0（表示该模型没有 output price），则跳过
+            if cr > 0:
+                out = round(inp * cr, 6)
+            else:
+                out = None
+
+            # 如果当前没有这个模型，或者新的价格更低，则更新
+            if model_name not in result['models'] or inp < result['models'][model_name].get('input', float('inf')):
+                result['models'][model_name] = {
+                    'input': inp,
+                    'output': out,
+                    'ratio': mr,
+                    'completionRatio': cr,
+                    'group': best_group,
+                    'base': base,
+                }
 
     result['modelCount'] = len(result['models'])
     return result
+
 
 def parse_rcouyi(data: dict) -> dict:
     """
@@ -232,6 +352,7 @@ def parse_rcouyi(data: dict) -> dict:
     result['modelCount'] = len(result['models'])
     return result
 
+
 def parse_generic(data: dict, station_id: str) -> dict:
     """通用解析器 - 尝试常见的 price 字段"""
     result = {
@@ -265,6 +386,7 @@ def parse_generic(data: dict, station_id: str) -> dict:
 
     result['modelCount'] = len(result['models'])
     return result
+
 
 PARSERS = {
     'yunwu': parse_yunwu,
@@ -379,11 +501,46 @@ def format_new_models_alert(new_station_data: dict) -> str:
         return '\n'.join(lines)
     return ''
 
+def format_compare_report(reference_diffs: list) -> str:
+    """格式化与 getcheapai 参考数据的对照报告"""
+    if not reference_diffs:
+        return ''
+
+    lines = ['🔍 <b>与 getcheapai 参考数据对照</b>', '']
+
+    for diff in reference_diffs:
+        inp_diff = diff['input_diff']
+        out_diff = diff['output_diff']
+        tolerance = 0.01  # 1% tolerance
+
+        if abs(inp_diff) <= tolerance and (out_diff is None or abs(out_diff) <= tolerance):
+            status = '✅'
+        elif abs(inp_diff) <= 0.1:
+            status = '⚠️'
+        else:
+            status = '❌'
+
+        lines.append(f"{status} <b>{diff['model']}</b> @ {diff['station']}")
+        lines.append(f"   我们: ¥{diff['our_input']}/{diff['our_output'] or 'N/A'}")
+        lines.append(f"   参考: ¥{diff['ref_input']}/{diff['ref_output']}")
+        out_str = f"{out_diff:+.4f}" if out_diff is not None else 'N/A'
+        lines.append(f"   差异: {inp_diff:+.4f} / {out_str}")
+        lines.append('')
+
+    lines.append('来自 aiapirelay 监控机器人')
+    return '\n'.join(lines)
+
 # ============================================
 # 主程序
 # ============================================
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='抓取中转站价格数据')
+    parser.add_argument('--compare', action='store_true', help='对照 getcheapai 参考数据')
+    parser.add_argument('--model', type=str, default=None, help='只抓取指定模型')
+    args = parser.parse_args()
+
     date_str = datetime.now().strftime('%Y-%m-%d')
     log(f'开始抓取价格数据 [{date_str}]', '🚀')
 
@@ -392,6 +549,7 @@ def main():
     prev_history = load_previous_day(date_str)
 
     all_changes = []
+    reference_diffs = []
 
     for station_id, config in STATIONS.items():
         name = config.get('name', station_id)
@@ -418,6 +576,21 @@ def main():
                 all_changes.extend(changes)
                 log(f'  发现 {len(changes)} 个价格变化', '⚠️')
 
+        # 与参考数据对照
+        if args.compare:
+            for model_id in GETCHEAPAI_REFERENCE.keys():
+                entry = parsed.get('models', {}).get(model_id)
+                if entry:
+                    our_inp = entry.get('input')
+                    our_out = entry.get('output')
+                    if our_inp is not None:
+                        diff = compare_with_reference(
+                            station_id, model_id, our_inp, our_out,
+                            GETCHEAPAI_REFERENCE
+                        )
+                        if diff:
+                            reference_diffs.append(diff)
+
         time.sleep(1)  # 避免请求过快
 
     # 保存
@@ -432,6 +605,14 @@ def main():
             log('价格变动预警已发送', '📱')
     else:
         log('无价格变动', '✓')
+
+    # 对照报告
+    if args.compare and reference_diffs:
+        report = format_compare_report(reference_diffs)
+        if report:
+            print('\n' + report)
+            send_telegram(report)
+            log('对照报告已发送', '📊')
 
     log('抓取完成', '🏁')
 
