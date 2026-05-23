@@ -31,8 +31,8 @@ export default function ModelDetailPage({ params }: Props) {
     return (
       <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>模型未找到</h1>
-        <p style={{ color: 'var(--text-muted)' }}>抱歉，没有找到匹配的模型数据。</p>
-        <a href="/" style={{ color: 'var(--accent)', display: 'inline-block', marginTop: '1rem' }}>← 返回首页</a>
+        <p style={{ color: 'var(--muted-foreground)' }}>抱歉，没有找到匹配的模型数据。</p>
+        <a href="/" style={{ color: 'var(--primary)', display: 'inline-block', marginTop: '1rem' }}>← 返回首页</a>
       </div>
     )
   }
@@ -40,10 +40,10 @@ export default function ModelDetailPage({ params }: Props) {
   return (
     <div style={{ padding: '2rem 0' }}>
       <div className="container">
-        <nav style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          <a href="/" style={{ color: 'var(--accent)' }}>首页</a>
+        <nav style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+          <a href="/" style={{ color: 'var(--primary)' }}>首页</a>
           <span style={{ margin: '0 0.5rem' }}>/</span>
-          <span>模型</span>
+          <a href="/models" style={{ color: 'var(--primary)' }}>模型</a>
           <span style={{ margin: '0 0.5rem' }}>/</span>
           <span>{model.id}</span>
         </nav>
@@ -52,7 +52,7 @@ export default function ModelDetailPage({ params }: Props) {
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
             {model.id}
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <p style={{ color: 'var(--muted-foreground)' }}>
             共 {model.stations.length} 个站点提供此模型
           </p>
         </div>
@@ -70,8 +70,8 @@ export default function ModelDetailPage({ params }: Props) {
                   width: '2rem',
                   height: '2rem',
                   borderRadius: '50%',
-                  background: i === 0 ? 'var(--green)' : 'var(--bg-secondary)',
-                  color: i === 0 ? '#000' : 'var(--text-muted)',
+                  background: i === 0 ? 'var(--price)' : 'var(--muted)',
+                  color: i === 0 ? '#fff' : 'var(--muted-foreground)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -84,15 +84,15 @@ export default function ModelDetailPage({ params }: Props) {
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: '0.125rem' }}>{s.stationName}</div>
                   {s.group && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.group}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{s.group}</div>
                   )}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--green)' }}>
+                <div style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--price)' }}>
                   {s.input !== null ? `¥${formatPrice(s.input)}` : '-'}
                 </div>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
                   {s.output !== null ? `输出 ¥${formatPrice(s.output)}` : 'input / 1M tokens'}
                 </div>
               </div>

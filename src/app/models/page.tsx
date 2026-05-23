@@ -18,7 +18,7 @@ export default function ModelsPage() {
     <div style={{ padding: '2rem 0' }}>
       <div className="container">
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>模型列表</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+        <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
           共 {allModels.length} 个模型，{Object.keys(pricesMap).length} 个站点
         </p>
 
@@ -33,10 +33,10 @@ export default function ModelsPage() {
               <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.375rem', lineHeight: 1.3 }}>
                 {m.id}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+              <div style={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>
                 {m.stations.length} 个站点
                 {m.stations[0]?.input !== null && (
-                  <span style={{ color: 'var(--green)', marginLeft: '0.5rem' }}>
+                  <span style={{ color: 'var(--price)', marginLeft: '0.5rem' }}>
                     ¥{m.stations[0].input}
                   </span>
                 )}

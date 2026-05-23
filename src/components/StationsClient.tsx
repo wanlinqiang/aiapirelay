@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Station, StationPriceData } from '@/lib/types'
-import { getStationTypeLabel, getStationTypeColor, getStatusColor, getModelDisplayName, formatPrice } from '@/lib/utils-client'
+import { getModelDisplayName, formatPrice } from '@/lib/utils-client'
 
 interface Props {
   stations: Station[]
@@ -29,13 +29,28 @@ export default function StationsClient({ stations, pricesMap }: Props) {
     return formatPrice(Math.min(...matching))
   }
 
+  const getModelCount = (stationId: string): number => {
+    const pd = pricesMap[stationId]
+    return pd?.modelCount || 0
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return '正常'
+      case 'unverified': return '待验证'
+      case 'inactive': return '停用'
+      case 'dead': return '跑路'
+      default: return status
+    }
+  }
+
   return (
     <div style={{ padding: '2rem 0' }}>
       <div className="container">
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
           全部站点
         </h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+        <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
           共收录 {activeStations.length} 个中转站，其中 {stations.filter(s => s.isAutoFetchable).length} 个支持价格自动抓取
         </p>
 
@@ -46,12 +61,16 @@ export default function StationsClient({ stations, pricesMap }: Props) {
               className={`filter-btn ${typeFilter === type ? 'active' : ''}`}
               onClick={() => setTypeFilter(type)}
             >
-              {type === 'all' ? '全部' : getStationTypeLabel(type)}
+              {type === 'all' ? '全部' : 
+               type === 'official-relay' ? '官方中转' :
+               type === 'mixed' ? '混合渠道' :
+               type === 'reverse' ? '逆向工程' :
+               type === 'aggregator' ? '聚合平台' : type}
             </button>
           ))}
         </div>
 
-        <div className="table-container card" style={{ padding: 0 }}>
+        <div className="table-container" style={{ padding: 0 }}>
           <table>
             <thead>
               <tr>
@@ -72,40 +91,61 @@ export default function StationsClient({ stations, pricesMap }: Props) {
                 return (
                   <tr key={station.id}>
                     <td>
-                      <a href={`/stations/${station.slug}`} style={{ color: 'var(--accent)', fontWeight: 500 }}>
+                      <a href={`/stations/${station.slug}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
                         {station.name}
                       </a>
-                      <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{station.url}</div>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>{station.url}</div>
                     </td>
                     <td>
-                      <span className={`badge ${getStationTypeColor(station.type)}`}>
-                        {getStationTypeLabel(station.type)}
+                      <span className="badge" style={{
+                        background: station.type === 'official-relay' ? 'rgba(34, 197, 94, 0.1)' :
+                                    station.type === 'mixed' ? 'rgba(59, 130, 246, 0.1)' :
+                                    station.type === 'reverse' ? 'rgba(234, 179, 8, 0.1)' :
+                                    'rgba(168, 85, 247, 0.1)',
+                        color: station.type === 'official-relay' ? '#22c55e' :
+                               station.type === 'mixed' ? '#3b82f6' :
+                               station.type === 'reverse' ? '#eab308' :
+                               '#a855f7',
+                        border: '1px solid',
+                        borderColor: station.type === 'official-relay' ? 'rgba(34, 197, 94, 0.3)' :
+                                     station.type === 'mixed' ? 'rgba(59, 130, 246, 0.3)' :
+                                     station.type === 'reverse' ? 'rgba(234, 179, 8, 0.3)' :
+                                     'rgba(168, 85, 247, 0.3)',
+                      }}>
+                        {station.type === 'official-relay' ? '官方中转' :
+                         station.type === 'mixed' ? '混合渠道' :
+                         station.type === 'reverse' ? '逆向工程' :
+                         station.type === 'aggregator' ? '聚合平台' : station.type}
                       </span>
                     </td>
                     <td>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                        <span className="status-dot" style={{ background: getStatusColor(station.status) }} />
+                        <span className="status-dot" style={{ 
+                          background: station.status === 'active' ? '#22c55e' : 
+                                      station.status === 'unverified' ? '#eab308' : 
+                                      station.status === 'dead' ? '#ef4444' : '#6b7280'
+                        }} />
                         <span style={{ fontSize: '0.8125rem' }}>
-                          {station.status === 'active' ? '正常' : station.status === 'unverified' ? '待验证' : station.status}
+                          {getStatusLabel(station.status)}
                         </span>
                       </span>
                     </td>
                     <td style={{ fontSize: '0.8125rem' }}>
                       {station.payment.join(', ')}
                     </td>
-                    <td style={{ color: 'var(--green)', fontWeight: 600 }}>
+                    <td style={{ color: 'var(--price)', fontWeight: 600 }}>
                       {getLowestPrice(station.id, 'gpt-4o')}
                     </td>
-                    <td style={{ color: 'var(--green)' }}>
+                    <td style={{ color: 'var(--price)' }}>
                       {getLowestPrice(station.id, 'claude-3-5-sonnet')}
                     </td>
-                    <td style={{ color: 'var(--green)' }}>
+                    <td style={{ color: 'var(--price)' }}>
                       {getLowestPrice(station.id, 'deepseek-v3')}
                     </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>
+                    <td style={{ color: 'var(--muted-foreground)' }}>
                       {pd?.modelCount || station.models.length}
                     </td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                    <td style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)' }}>
                       {station.isAutoFetchable ? '🤖' : '📝'}
                     </td>
                   </tr>
