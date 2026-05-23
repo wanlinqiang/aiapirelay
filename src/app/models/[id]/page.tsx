@@ -1,103 +1,106 @@
-// Model detail page — shows all stations that support this model, sorted by price
-import { getPricesMap } from '@/lib/data-server'
-import { buildModelIndex } from '@/lib/model-utils'
-import { formatPrice } from '@/lib/utils-client'
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { getAllStations, getPricesMap } from '@/lib/data-server'
+import { buildModelIndex, type ModelEntry } from '@/lib/model-utils'
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export async function generateStaticParams() {
+  const stations = getAllStations()
   const pricesMap = getPricesMap()
   const modelIndex = buildModelIndex(pricesMap)
-  return Object.keys(modelIndex).map(id => ({ id: encodeURIComponent(id) }))
+  return Object.keys(modelIndex).map(id => ({ id }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const modelId = decodeURIComponent(params.id)
+  const { id } = await params
+  const decoded = decodeURIComponent(id)
   return {
-    title: `${modelId} - API 价格对比`,
-    description: `比较所有提供 ${modelId} 的中转站价格，找出最优惠的选择`,
+    title: `${decoded} 价格对比`,
+    description: `比较 ${decoded} 在各平台的 API 价格`,
   }
 }
 
-export default function ModelDetailPage({ params }: Props) {
+export default async function ModelDetailPage({ params }: Props) {
+  const { id } = await params
+  const modelId = decodeURIComponent(id)
+
+  const stations = getAllStations()
   const pricesMap = getPricesMap()
   const modelIndex = buildModelIndex(pricesMap)
-  const model = modelIndex[decodeURIComponent(params.id)]
 
+  const model = modelIndex[modelId]
   if (!model) {
-    return (
-      <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>模型未找到</h1>
-        <p style={{ color: 'var(--muted-foreground)' }}>抱歉，没有找到匹配的模型数据。</p>
-        <a href="/" style={{ color: 'var(--primary)', display: 'inline-block', marginTop: '1rem' }}>← 返回首页</a>
-      </div>
-    )
+    notFound()
   }
 
+  // Sort by input price
+  const sorted = [...model.stations].sort((a, b) => (a.input ?? 999) - (b.input ?? 999))
+
   return (
-    <div style={{ padding: '2rem 0' }}>
+    <div style={{ padding: '2rem 0 4rem' }}>
       <div className="container">
-        <nav style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-          <a href="/" style={{ color: 'var(--primary)' }}>首页</a>
-          <span style={{ margin: '0 0.5rem' }}>/</span>
-          <a href="/models" style={{ color: 'var(--primary)' }}>模型</a>
-          <span style={{ margin: '0 0.5rem' }}>/</span>
-          <span>{model.id}</span>
-        </nav>
+        {/* Back */}
+        <a href="/" style={{ fontSize: '0.875rem', color: 'var(--muted-foreground)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.5rem' }}>
+          ← 返回
+        </a>
 
-        <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-            {model.id}
-          </h1>
-          <p style={{ color: 'var(--muted-foreground)' }}>
-            共 {model.stations.length} 个站点提供此模型
-          </p>
-        </div>
+        {/* Title */}
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+          {model.id}
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
+          {model.stations.length} 个平台提供此模型
+        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {model.stations.map((s, i) => (
-            <a
-              key={`${s.stationId}-${i}`}
-              href={`/stations/${s.stationId}`}
-              className="card"
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none', padding: '1rem 1.25rem' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{
-                  width: '2rem',
-                  height: '2rem',
-                  borderRadius: '50%',
-                  background: i === 0 ? 'var(--price)' : 'var(--muted)',
-                  color: i === 0 ? '#fff' : 'var(--muted-foreground)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.8125rem',
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}>
-                  {i + 1}
-                </span>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: '0.125rem' }}>{s.stationName}</div>
-                  {s.group && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{s.group}</div>
-                  )}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--price)' }}>
-                  {s.input !== null ? `¥${formatPrice(s.input)}` : '-'}
-                </div>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>
-                  {s.output !== null ? `输出 ¥${formatPrice(s.output)}` : 'input / 1M tokens'}
-                </div>
-              </div>
-            </a>
-          ))}
+        {/* Price table */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '0.625rem', overflow: 'hidden' }}>
+          <table className="price-table">
+            <thead>
+              <tr>
+                <th style={{ width: '2rem', textAlign: 'center' }}>#</th>
+                <th>平台</th>
+                <th style={{ textAlign: 'right' }}>输入 (¥/M)</th>
+                <th style={{ textAlign: 'right' }}>输出 (¥/M)</th>
+                <th style={{ textAlign: 'right' }}>跳转</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((s, i) => (
+                <tr key={`${s.stationId}-${i}`}>
+                  <td style={{ textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>
+                    {i + 1}
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{s.stationName}</div>
+                    {s.group && (
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--muted-foreground)' }}>{s.group}</div>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className="price-input">
+                      {s.input != null ? `¥${s.input.toFixed(4)}` : '—'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className="price-output">
+                      {s.output != null ? `¥${s.output.toFixed(4)}` : '—'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <a
+                      href={`/stations/${s.stationId}`}
+                      style={{ color: 'var(--primary)', fontSize: '0.875rem', fontWeight: 500 }}
+                    >
+                      查看 →
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
